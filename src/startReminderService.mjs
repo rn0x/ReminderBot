@@ -6,6 +6,7 @@ import {
     getAdminsByChat,
     updateReminder
 } from './db.mjs';
+import { sendMessageInChunks } from './utils/sendMessageInChunks.mjs'
 
 const scheduledReminders = new Set(); // Cache لتخزين معرّفات التذكيرات المجدولة
 
@@ -34,8 +35,7 @@ const sendReminder = async (client, chatId, title, message, timeRemaining = null
             fullMessage += `\n\n👥 الأعضاء: ${memberMentions}`;
         }
 
-        await client.telegram.sendMessage(chatId, fullMessage, options).catch((error) => { console.error(error);
-        })
+        await sendMessageInChunks(client, chatId, fullMessage, options);
     } catch (error) {
         console.error(`Error sending reminder: ${error.message}`);
     }
