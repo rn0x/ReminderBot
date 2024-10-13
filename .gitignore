@@ -1,0 +1,7 @@
+*.db
+package-lock.json
+node_modules/
+.env
+.temp
+.cache
+database
