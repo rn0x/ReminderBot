@@ -14,7 +14,7 @@ const scheduledReminders = new Set(); // تخزين معرّفات التذكي�
 // دالة لإرسال التذكير
 const sendReminder = async (client, chatId, title, message, timeRemaining = null, mentionAdmins = false, mentionAll = false) => {
     try {
-        let fullMessage = `🗓️ ${title}\n📢 ${message}`;
+        let fullMessage = `🔔 #تذكير\n\n🗓️ ${title}\n📢 ${message}`;
         if (timeRemaining) {
             fullMessage += `\n⏳ الوقت المتبقي: ${timeRemaining}`;
         }
@@ -22,32 +22,34 @@ const sendReminder = async (client, chatId, title, message, timeRemaining = null
         const options = { parse_mode: 'Markdown', disable_notification: false };
 
         if (mentionAdmins) {
-            const adminIds = await getAdminsByChat(chatId);
-            const adminMentions = await Promise.all(
-                adminIds.map(async (adminId) => {
-                    const admin = await getMemberByUserIdAndChatId(adminId, chatId);
-                    return admin?.username ? `@${admin.username}` : null;
-                })
-            );
+            const admins = await getAdminsByChat(chatId);
+            let adminMentions = '';
 
-            const validAdminMentions = adminMentions.filter(Boolean).join(' ');
-            if (validAdminMentions) {
-                fullMessage += `\n\n👮‍♂️ المشرفون: ${validAdminMentions}`;
+            for (const admin of admins) {
+                const member = await getMemberByUserIdAndChatId(admin.id, chatId);
+                if (member.username) {
+                    adminMentions += `@${member.username} `;
+                }
+            }
+
+            if (adminMentions) {
+                fullMessage += `\n\n👮‍♂️ المشرفون: ${adminMentions.trim()}`;
             }
         }
 
         if (mentionAll) {
-            const memberIds = await getMembersByChat(chatId);
-            const memberMentions = await Promise.all(
-                memberIds.map(async (memberId) => {
-                    const member = await getMemberByUserIdAndChatId(memberId, chatId);
-                    return member?.username ? `@${member.username}` : null;
-                })
-            );
 
-            const validMemberMentions = memberMentions.filter(Boolean).join(' ');
-            if (validMemberMentions) {
-                fullMessage += `\n\n👥 الأعضاء: ${validMemberMentions}`;
+            const members = await getMembersByChat(chatId);
+            let memberMentions = '';
+
+            for (const member of members) {
+                if (member.username) {
+                    memberMentions += `@${member.username} `;
+                }
+            }
+
+            if (memberMentions) {
+                fullMessage += `\n\n👥 الأعضاء: ${memberMentions.trim()}`;
             }
         }
 
@@ -101,7 +103,7 @@ const scheduleRecurringReminder = (client, reminder) => {
     // console.log(`تاريخ ووقت التذكير التالي: ${nextOccurrence}`);
 
     schedule.scheduleJob(nextOccurrence, async () => {
-        await sendReminder(client, reminder.chatId, reminder.title, reminder.message);
+        await sendReminder(client, reminder.chatId, reminder.title, reminder.message, null, false, true);
         // console.log(`Recurring reminder ${reminder.id} sent at ${nextOccurrence}`);
     });
 

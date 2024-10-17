@@ -77,9 +77,10 @@ const createTables = async () => {
     // جدول الأعضاء
     await db.exec(`
         CREATE TABLE IF NOT EXISTS members (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- معرف العضو (فريد)
+            id INTEGER PRIMARY KEY AUTOINCREMENT,   -- معرف العضو (فريد)
             userId TEXT NOT NULL,                   -- معرف المستخدم (لتحديد العضو)
             chatId TEXT NOT NULL,                   -- معرف المحادثة المرتبط
+            username TEXT,                          -- اسم المستخدم للعضو (قد يكون فارغًا)
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, -- تاريخ ووقت إضافة العضو
             UNIQUE(userId, chatId),                 -- منع تكرار العضو في نفس المحادثة
             FOREIGN KEY (chatId) REFERENCES chats (chatId) -- قيود العلاقة مع جدول المحادثات
@@ -202,17 +203,17 @@ export const updateReminder = async (reminderId, updateFields) => {
 
 
 // دالة لإضافة عضو
-export const addMember = async (userId, chatId) => {
-    validateInputs({ userId, chatId });
+export const addMember = async (userId, chatId, username = null) => {
+    validateInputs({ userId, chatId, username });
 
     const db = await openDatabase();
 
     try {
         const result = await db.run(`
-            INSERT INTO members (userId, chatId)
-            VALUES (?, ?)
+            INSERT INTO members (userId, chatId, username)
+            VALUES (?, ?, ?)
             ON CONFLICT(userId, chatId) DO NOTHING;
-        `, [String(userId), String(chatId)]);
+        `, [String(userId), String(chatId), username]);
 
         return result.lastID || null;
     } catch (error) {
