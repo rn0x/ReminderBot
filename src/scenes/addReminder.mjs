@@ -10,35 +10,84 @@ addReminderScene.enter(async (ctx) => {
         await ctx.reply('❌ ليس لديك صلاحيات لإضافة المواعيد.');
         return ctx.scene.leave();
     }
-    await ctx.reply('📅 يرجى إدخال عنوان التذكير:');
+    await ctx.reply('🔁 هل تريد جعل التذكير متكررًا؟ (نعم / لا)');
     ctx.session.reminder = {}; // تهيئة الكائن لحفظ بيانات التذكير
 });
 
-// استقبال عنوان التذكير
+// استقبال الردود بالتسلسل
 addReminderScene.on('text', async (ctx) => {
-    if (!ctx.session.reminder.title) {
-        ctx.session.reminder.title = ctx.message.text;
-        await ctx.reply('⏰ الآن أدخل وقت التذكير (بصيغة YYYY-MM-DD HH:mm):');
-    } else if (!ctx.session.reminder.reminderTime) {
-        const time = ctx.message.text;
-        const isValidTime = !isNaN(Date.parse(time)); // التحقق من صحة الوقت
+    const input = ctx.message.text.trim().toLowerCase();
 
-        if (!isValidTime) {
-            return await ctx.reply('❌ تنسيق الوقت غير صحيح. حاول مرة أخرى:');
+    if (ctx.session.reminder.isRecurring === undefined) {
+        if (input === 'نعم') {
+            ctx.session.reminder.isRecurring = true;
+            await ctx.reply('📅 اختر يوم التذكير (0 = كل يوم، 1 = السبت، ...، 7 = الجمعة):');
+        } else if (input === 'لا') {
+            ctx.session.reminder.isRecurring = false;
+            await ctx.reply('📅 أدخل تاريخ التذكير (YYYY-MM-DD):');
+        } else {
+            return await ctx.reply('❌ اختر "نعم" أو "لا" فقط.');
+        }
+    }
+    else if (ctx.session.reminder.isRecurring && ctx.session.reminder.dayOfWeek === undefined) {
+        const day = parseInt(input);
+        if (isNaN(day) || day < 0 || day > 7) {
+            return await ctx.reply('❌ أدخل رقمًا بين 0 و 7.');
         }
 
-        ctx.session.reminder.reminderTime = new Date(time);
-        await ctx.reply('📝 أدخل رسالة التذكير:');
-    } else {
-        ctx.session.reminder.message = ctx.message.text;
+        ctx.session.reminder.dayOfWeek = day; // يتم تخزين 0 كل يوم
+        await ctx.reply('⏰ أدخل وقت التذكير (HH:mm):');
+    }
+    else if (!ctx.session.reminder.isRecurring && !ctx.session.reminder.date) {
+        const date = new Date(input);
+        if (isNaN(date)) {
+            return await ctx.reply('❌ تنسيق التاريخ غير صحيح. حاول مرة أخرى (YYYY-MM-DD):');
+        }
 
-        // استدعاء دالة لإضافة التذكير إلى قاعدة البيانات
+        ctx.session.reminder.date = input;
+        await ctx.reply('⏰ أدخل وقت التذكير (HH:mm):');
+    }
+    else if (!ctx.session.reminder.time) {
+        const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+        if (!timePattern.test(input)) {
+            return await ctx.reply('❌ أدخل الوقت بصيغة HH:mm.');
+        }
+
+        ctx.session.reminder.time = input;
+        await ctx.reply('📋 أدخل عنوان التذكير:');
+    }
+    else if (!ctx.session.reminder.title) {
+        ctx.session.reminder.title = input;
+        await ctx.reply('📝 أدخل رسالة التذكير:');
+    }
+    else {
+        ctx.session.reminder.message = input;
+
+        const msgDayOfWeek = ctx.session.reminder.dayOfWeek === 0
+            ? '🗓️ كل يوم'
+            : `🗓️ كل ${['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'][ctx.session.reminder.dayOfWeek - 1]}`;
+
+        await ctx.reply(`📋 ملخص التذكير:
+            - **العنوان**: ${ctx.session.reminder.title}
+            - **الرسالة**: ${ctx.session.reminder.message}
+            - **التاريخ**: ${ctx.session.reminder.isRecurring ? 'متكرر' : ctx.session.reminder.date}
+            - **الوقت**: ${ctx.session.reminder.time}
+            - **يوم الأسبوع**: ${ctx.session.reminder.isRecurring ? msgDayOfWeek : 'غير محدد'}`, { parse_mode: 'Markdown' });
+
+        // إعداد الحقول للتخزين
+        const {
+            isRecurring, date, dayOfWeek, time, title, message,
+        } = ctx.session.reminder;
+
         try {
             await addReminderToDatabase(
                 ctx.chat.id,
-                ctx.session.reminder.reminderTime,
-                ctx.session.reminder.title,
-                ctx.session.reminder.message
+                time,
+                title,
+                message,
+                Number(isRecurring),
+                date || null,
+                dayOfWeek
             );
 
             await ctx.reply('✅ تم إضافة التذكير بنجاح!');
@@ -58,10 +107,14 @@ addReminderScene.command('cancel', async (ctx) => {
     ctx.scene.leave();
 });
 
-// وظيفة لإضافة التذكير إلى قاعدة البيانات
-const addReminderToDatabase = async (chatId, reminderTime, title, message) => {
+// وظيفة لإضافة اتذكير إلى قاعدة البيانات
+const addReminderToDatabase = async (
+    chatId, time, title, message, isRecurring, date, dayOfWeek
+) => {
+
     const { addReminder } = await import('../db.mjs');
-    await addReminder(chatId, reminderTime, title, message);
+    await addReminder(chatId, time, title, message, isRecurring, date, dayOfWeek);
+
 };
 
 export { addReminderScene };

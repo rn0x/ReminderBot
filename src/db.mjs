@@ -1,3 +1,4 @@
+// db.mjs
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import fs from 'node:fs';
@@ -46,14 +47,17 @@ const createTables = async () => {
     // جدول التذكيرات
     await db.exec(`
         CREATE TABLE IF NOT EXISTS reminders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- معرف التذكرة (فريد)
-            chatId TEXT NOT NULL,                   -- معرف المحادثة المرتبط (يرتبط بجدول المحادثات)
-            reminderTime DATETIME NOT NULL,         -- وقت التذكير
-            title TEXT NOT NULL,                    -- عنوان التذكير
-            message TEXT NOT NULL,                  -- رسالة التذكير
-            sent BOOLEAN DEFAULT 0,                 -- حالة الإرسال (0 = غير مرسلة، 1 = مرسلة)
-            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, -- تاريخ ووقت إنشاء التذكير
-            FOREIGN KEY (chatId) REFERENCES chats (chatId) -- قيود العلاقة مع جدول المحادثات
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chatId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            time TEXT NOT NULL,         -- الوقت في صيغة HH:MM
+            dayOfWeek INTEGER,          -- رقم اليوم في الأسبوع (0-6) يمكن أن يكون فارغًا
+            date DATE,                  -- التاريخ (YYYY-MM-DD) يمكن أن يكون فارغًا للتذكيرات المتكررة
+            isRecurring BOOLEAN DEFAULT 0, -- هل التذكير متكرر
+            sent BOOLEAN DEFAULT 0,
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (chatId) REFERENCES chats (chatId)
         );
     `);
 
@@ -106,34 +110,30 @@ const validateInputs = (inputs) => {
     }
 };
 
-// دالة للتحقق من التذكيرات المتعارضة
-const checkConflictingReminders = async (chatId, reminderTime) => {
+// دالة للتحقق من وجود تعارض مع التذكيرات
+const checkConflictingReminders = async (chatId, time, dayOfWeek, date) => {
     const db = await openDatabase();
 
-    const oneHourBefore = new Date(reminderTime);
-    oneHourBefore.setHours(oneHourBefore.getHours() - 1);
-
-    const oneHourAfter = new Date(reminderTime);
-    oneHourAfter.setHours(oneHourAfter.getHours() + 1);
-
-    const conflicts = await db.get(`
+    const query = `
         SELECT 1 FROM reminders 
-        WHERE chatId = ? AND reminderTime BETWEEN ? AND ?`,
-        [String(chatId), oneHourBefore.toISOString(), oneHourAfter.toISOString()]
-    );
+        WHERE chatId = ? AND time = ? 
+        AND (dayOfWeek = ? OR date = ?)
+    `;
+    const conflicts = await db.get(query, [String(chatId), time, dayOfWeek, date]);
 
     await db.close();
-    return !!conflicts; // تعيد true إذا كان هناك تعارض
+    return !!conflicts;
 };
 
-// دالة لجلب جميع التذكيرات الخاصة بمحادثة معينة
+// دالة لجلب التذكيرات الخاصة بمحادثة معينة
 export const fetchReminders = async (chatId) => {
-    validateInputs({ chatId });
-
     const db = await openDatabase();
 
     try {
-        const reminders = await db.all('SELECT * FROM reminders WHERE chatId = ?', [String(chatId)]);
+        const reminders = await db.all(`
+            SELECT * FROM reminders WHERE chatId = ?
+        `, [String(chatId)]);
+
         return reminders;
     } catch (error) {
         console.error('Failed to fetch reminders:', error);
@@ -142,15 +142,12 @@ export const fetchReminders = async (chatId) => {
     }
 };
 
-// دالة لحذف تذكرة باستخدام المعرف الخاص بها (reminderId)
+// دالة لحذف تذكرة
 export const removeReminder = async (reminderId) => {
-    validateInputs({ reminderId });
-
     const db = await openDatabase();
 
     try {
         const result = await db.run('DELETE FROM reminders WHERE id = ?', [reminderId]);
-
         if (result.changes === 0) {
             console.log('Reminder not found');
         }
@@ -161,20 +158,23 @@ export const removeReminder = async (reminderId) => {
     }
 };
 
-// دالة لإضافة تذكرة
-export const addReminder = async (chatId, reminderTime, title, message) => {
-    validateInputs({ chatId, reminderTime, title, message });
-
-    const isConflicting = await checkConflictingReminders(String(chatId), reminderTime);
-    if (isConflicting) {
-        console.log('There is a conflicting reminder within one hour of this time');
-    }
-
+// دالة لإضافة تذكرة مع دعم التكرار
+export const addReminder = async (chatId, time, title, message, isRecurring = false, date = null, dayOfWeek = null) => {
     const db = await openDatabase();
 
     try {
-        const result = await db.run('INSERT INTO reminders (chatId, reminderTime, title, message) VALUES (?, ?, ?, ?)', [String(chatId), reminderTime, title, message]);
-        return result.lastID; // المعرف الفريد للتذكير
+        const conflict = await checkConflictingReminders(String(chatId), time, dayOfWeek, date);
+        if (conflict) {
+            console.log('يوجد تعارض مع تذكير آخر.');
+            return;
+        }
+
+        const result = await db.run(`
+            INSERT INTO reminders (chatId, time, title, message, isRecurring, date, dayOfWeek)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [String(chatId), time, title, message, isRecurring, date, dayOfWeek]);
+
+        return result.lastID;
     } catch (error) {
         console.error('Failed to add reminder:', error);
     } finally {
@@ -229,7 +229,7 @@ export const getMembersByChat = async (chatId) => {
     const db = await openDatabase();
 
     try {
-        const members = await db.all('SELECT * FROM members WHERE chatId = ?', [chatId]);
+        const members = await db.all('SELECT * FROM members WHERE chatId = ?', [String(chatId)]);
         return members;
     } catch (error) {
         console.error('Failed to fetch members by chat:', error);
@@ -238,7 +238,6 @@ export const getMembersByChat = async (chatId) => {
     }
 };
 
-// دالة لحذف عضو
 // دالة لحذف عضو
 export const deleteMember = async (userId, chatId) => {
     validateInputs({ userId, chatId });
