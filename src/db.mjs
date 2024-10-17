@@ -238,6 +238,32 @@ export const getMembersByChat = async (chatId) => {
     }
 };
 
+// دالة لجلب عضو معين حسب userId و chatId
+export const getMemberByUserIdAndChatId = async (userId, chatId) => {
+    validateInputs({ userId, chatId });
+
+    const db = await openDatabase();
+
+    try {
+        const member = await db.get(
+            'SELECT * FROM members WHERE userId = ? AND chatId = ?',
+            [String(userId), String(chatId)]
+        );
+
+        if (!member) {
+            console.log(`No member found with userId ${userId} in chat ${chatId}.`);
+            return null;
+        }
+
+        return member;
+    } catch (error) {
+        console.error('Failed to fetch member by userId and chatId:', error);
+    } finally {
+        await db.close();
+    }
+};
+
+
 // دالة لحذف عضو
 export const deleteMember = async (userId, chatId) => {
     validateInputs({ userId, chatId });

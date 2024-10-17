@@ -3,6 +3,7 @@ import {
     fetchAllChats,
     fetchReminders,
     getMembersByChat,
+    getMemberByUserIdAndChatId,
     getAdminsByChat,
     updateReminder,
 } from './db.mjs';
@@ -21,30 +22,32 @@ const sendReminder = async (client, chatId, title, message, timeRemaining = null
         const options = { parse_mode: 'Markdown', disable_notification: false };
 
         if (mentionAdmins) {
-            const admins = await getAdminsByChat(chatId);
-            const adminMentions = admins
-                .map(admin => {
-                    return (admin.username && admin.username !== "") ? `@${admin.username}` : null; // تحقق من وجود username وغير فارغ
+            const adminIds = await getAdminsByChat(chatId);
+            const adminMentions = await Promise.all(
+                adminIds.map(async (adminId) => {
+                    const admin = await getMemberByUserIdAndChatId(adminId, chatId);
+                    return admin?.username ? `@${admin.username}` : null;
                 })
-                .filter(Boolean) // إلغاء القيم الفارغة
-                .join(' ');
+            );
 
-            if (adminMentions) {
-                fullMessage += `\n\n👮‍♂️ المشرفون: ${adminMentions}`;
+            const validAdminMentions = adminMentions.filter(Boolean).join(' ');
+            if (validAdminMentions) {
+                fullMessage += `\n\n👮‍♂️ المشرفون: ${validAdminMentions}`;
             }
         }
 
         if (mentionAll) {
-            const members = await getMembersByChat(chatId);
-            const memberMentions = members
-                .map(member => {
-                    return (member.username && member.username !== "") ? `@${member.username}` : null; // تحقق من وجود username وغير فارغ
+            const memberIds = await getMembersByChat(chatId);
+            const memberMentions = await Promise.all(
+                memberIds.map(async (memberId) => {
+                    const member = await getMemberByUserIdAndChatId(memberId, chatId);
+                    return member?.username ? `@${member.username}` : null;
                 })
-                .filter(Boolean) // إلغاء القيم الفارغة
-                .join(' ');
+            );
 
-            if (memberMentions) {
-                fullMessage += `\n\n👥 الأعضاء: ${memberMentions}`;
+            const validMemberMentions = memberMentions.filter(Boolean).join(' ');
+            if (validMemberMentions) {
+                fullMessage += `\n\n👥 الأعضاء: ${validMemberMentions}`;
             }
         }
 
