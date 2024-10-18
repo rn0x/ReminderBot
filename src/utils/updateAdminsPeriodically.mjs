@@ -14,5 +14,5 @@ export default async function updateAdminsPeriodically(client) {
         } catch (error) {
             console.error('Failed to update admins:', error.message);
         }
-    }, 3 * 60 * 60 * 1000); // كل 3 ساعات
+    }, 2 * 60 * 60 * 1000); // كل 2 ساعات
 }

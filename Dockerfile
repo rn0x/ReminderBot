@@ -1,6 +1,12 @@
 # استخدم صورة رسمية لـ Node.js
 FROM node:18-alpine
 
+# تثبيت tzdata لتعيين المنطقة الزمنية
+RUN apk add --no-cache tzdata
+
+# تعيين المنطقة الزمنية إلى مكة المكرمة
+ENV TZ=Asia/Riyadh
+
 # تعيين دليل العمل داخل الحاوية
 WORKDIR /app
 

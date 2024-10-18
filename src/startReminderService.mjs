@@ -9,7 +9,12 @@ import {
 } from './db.mjs';
 import { sendMessageInChunks } from './utils/sendMessageInChunks.mjs';
 
-const scheduledReminders = new Set(); // تخزين معرّفات التذكيرات المجدولة
+const scheduledReminders = new Set();
+
+// دالة لتحويل التاريخ إلى توقيت مكة المكرمة
+const toMakkahTime = (date) => {
+    return new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }));
+};
 
 // دالة لإرسال التذكير
 const sendReminder = async (client, chatId, title, message, timeRemaining = null, mentionAdmins = false, mentionAll = false) => {
@@ -21,14 +26,21 @@ const sendReminder = async (client, chatId, title, message, timeRemaining = null
 
         const options = { parse_mode: 'Markdown', disable_notification: false };
 
+        // ذكر المشرفين إذا كانت الإعدادات تتطلب ذلك
         if (mentionAdmins) {
             const admins = await getAdminsByChat(chatId);
             let adminMentions = '';
 
             for (const admin of admins) {
-                const member = await getMemberByUserIdAndChatId(admin.id, chatId);
-                if (member.username) {
-                    adminMentions += `@${member.username} `;
+                const member = await getMemberByUserIdAndChatId(admin.userId, chatId);
+                if (member) { // تحقق من وجود العضو
+                    if (member.username) {
+                        adminMentions += `@${member.username} `;
+                    } else {
+                        console.warn(`Admin ${admin.userId} does not have a username.`);
+                    }
+                } else {
+                    console.warn(`No member found with userId ${admin.userId} in chat ${chatId}.`);
                 }
             }
 
@@ -37,14 +49,16 @@ const sendReminder = async (client, chatId, title, message, timeRemaining = null
             }
         }
 
+        // ذكر جميع الأعضاء إذا كانت الإعدادات تتطلب ذلك
         if (mentionAll) {
-
             const members = await getMembersByChat(chatId);
             let memberMentions = '';
 
             for (const member of members) {
                 if (member.username) {
                     memberMentions += `@${member.username} `;
+                } else {
+                    console.warn(`Member ${member.id} does not have a username.`);
                 }
             }
 
@@ -71,7 +85,7 @@ const scheduleReminder = (client, reminder) => {
 // دالة لجدولة التذكيرات المتكررة
 const scheduleRecurringReminder = (client, reminder) => {
     const [hours, minutes] = reminder.time.split(':').map(Number);
-    const now = new Date();
+    const now = toMakkahTime(new Date());
 
     const nextOccurrence = new Date();
     nextOccurrence.setHours(hours, minutes, 0, 0);
@@ -113,8 +127,8 @@ const scheduleRecurringReminder = (client, reminder) => {
 
 // دالة لجدولة التذكيرات غير المتكررة
 const scheduleNonRecurringReminder = (client, reminder) => {
-    const reminderTime = new Date(`${reminder.date}T${reminder.time}:00`);
-    const now = new Date();
+    const reminderTime = toMakkahTime(new Date(`${reminder.date}T${reminder.time}:00`));
+    const now = toMakkahTime(new Date());
 
     if (reminderTime <= now) {
         return; // التذكير قد مضى
@@ -137,7 +151,7 @@ const scheduleReminderAlerts = (client, reminder, reminderTime) => {
     // تنبيه قبل 1 ساعة
     const oneHourBefore = new Date(reminderTime.getTime() - 60 * 60 * 1000);
     schedule.scheduleJob(oneHourBefore, async () => {
-        const timeRemaining = `${Math.floor((reminderTime - new Date()) / (60 * 1000))} دقيقة`;
+        const timeRemaining = `${Math.floor((reminderTime - toMakkahTime(new Date())) / (60 * 1000))} دقيقة`;
         await sendReminder(client, reminder.chatId, reminder.title, reminder.message, timeRemaining);
         // console.log(`One hour alert for reminder ${reminder.id} sent at ${oneHourBefore}`);
     });
@@ -145,7 +159,7 @@ const scheduleReminderAlerts = (client, reminder, reminderTime) => {
     // تنبيه قبل 15 دقيقة
     const fifteenMinutesBefore = new Date(reminderTime.getTime() - 15 * 60 * 1000);
     schedule.scheduleJob(fifteenMinutesBefore, async () => {
-        const timeRemaining = `${Math.floor((reminderTime - new Date()) / (60 * 1000))} دقيقة`;
+        const timeRemaining = `${Math.floor((reminderTime - toMakkahTime(new Date())) / (60 * 1000))} دقيقة`;
         await sendReminder(client, reminder.chatId, reminder.title, reminder.message, timeRemaining, true); // mentionAdmins = true
         // console.log(`Fifteen minutes alert for reminder ${reminder.id} sent at ${fifteenMinutesBefore}`);
     });
@@ -168,7 +182,7 @@ const checkAndScheduleReminders = async (client) => {
 };
 
 // دالة بدء خدمة التذكير
-export default function startReminderService(client) {
+export default async function startReminderService(client) {
     setInterval(() => checkAndScheduleReminders(client), 60000);
     console.log('Reminder service started successfully');
 }
