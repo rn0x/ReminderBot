@@ -76,7 +76,6 @@ npm start
 │   ├── utils
 │   │   └── updateAdminsPeriodically.mjs
 │   │   └── checkIfAdmin.mjs
-│   │   └── getAllChatMembers.mjs
 │   │   └── sendMessageInChunks.mjs
 │   ├── client.mjs
 │   ├── db.mjs

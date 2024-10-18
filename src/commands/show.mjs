@@ -7,7 +7,7 @@ export default async function showCommand(ctx) {
         if (reminders.length === 0) {
             await ctx.reply('📭 لا توجد تذكيرات حالية في هذه المحادثة.');
             return;
-        }        
+        }
 
         const reminderList = reminders
             .map((r, index) => {
@@ -19,8 +19,8 @@ export default async function showCommand(ctx) {
                 const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : 'غير محدد';
 
                 // تحديد نوع التكرار
-                let recurrenceText;                                
-                if (r.isRecurring) {                    
+                let recurrenceText;
+                if (r.isRecurring) {
                     recurrenceText = r.dayOfWeek === 0
                         ? '🗓️ كل يوم'
                         : `🗓️ كل ${['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'][r.dayOfWeek - 1]}`;
@@ -28,12 +28,18 @@ export default async function showCommand(ctx) {
                     recurrenceText = '🔄 لمرة واحدة';
                 }
 
-                return `⏰ ${index + 1} - **${r.title}**\n📅 التاريخ: ${formattedDate}\n🕒 الوقت: ${formattedTime}\n${recurrenceText}\n`;
+                let reminderListMessage = `⏰ رقم التذكير: ${index + 1}\n`;
+                reminderListMessage += `📋 عنوان التذكير: <b>${r.title}</b>\n`;
+                reminderListMessage += `📝 نص التذكير: <b>${r.message}</b>\n`;
+                reminderListMessage += `📅 <b>التاريخ:</b> ${formattedDate}\n`;
+                reminderListMessage += `🕒 <b>الوقت:</b> ${formattedTime}\n`;
+                reminderListMessage += `${recurrenceText}\n\n`;
+
+                return reminderListMessage;
             })
             .join('\n');
 
-        // await ctx.reply(`📅 **التذكيرات الحالية:**\n\n${reminderList}`, { parse_mode: 'Markdown' });
-        await sendMessageInChunks(ctx, ctx.chat.id, `📅 **التذكيرات الحالية:**\n\n${reminderList}`, { parse_mode: 'Markdown' });
+        await sendMessageInChunks(ctx, ctx.chat.id, `📅 <b>التذكيرات الحالية:</b>\n\n${reminderList}`, { parse_mode: 'HTML' });
     } catch (error) {
         console.error('Failed to fetch reminders:', error);
         await ctx.reply('❌ حدث خطأ أثناء تحميل التذكيرات. حاول لاحقًا.');

@@ -67,12 +67,15 @@ addReminderScene.on('text', async (ctx) => {
             ? '🗓️ كل يوم'
             : `🗓️ كل ${['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'][ctx.session.reminder.dayOfWeek - 1]}`;
 
-        await ctx.reply(`📋 ملخص التذكير:
-            - **العنوان**: ${ctx.session.reminder.title}
-            - **الرسالة**: ${ctx.session.reminder.message}
-            - **التاريخ**: ${ctx.session.reminder.isRecurring ? 'متكرر' : ctx.session.reminder.date}
-            - **الوقت**: ${ctx.session.reminder.time}
-            - **يوم الأسبوع**: ${ctx.session.reminder.isRecurring ? msgDayOfWeek : 'غير محدد'}`, { parse_mode: 'Markdown' });
+        let summaryMessage = `📋 ملخص التذكير:\n`;
+        summaryMessage += `- <b>العنوان</b>: ${ctx.session.reminder.title}\n`;
+        summaryMessage += `- <b>الرسالة</b>: ${ctx.session.reminder.message}\n`;
+        summaryMessage += `- <b>التاريخ</b>: ${ctx.session.reminder.isRecurring ? 'متكرر' : ctx.session.reminder.date}\n`;
+        summaryMessage += `- <b>الوقت</b>: ${ctx.session.reminder.time}\n`;
+        summaryMessage += `- <b>يوم الأسبوع</b>: ${ctx.session.reminder.isRecurring ? msgDayOfWeek : 'غير محدد'}`;
+
+        // إرسال الرسالة
+        await ctx.reply(summaryMessage, { parse_mode: 'HTML' });
 
         // إعداد الحقول للتخزين
         const {

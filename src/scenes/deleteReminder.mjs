@@ -29,19 +29,27 @@ deleteReminderScene.enter(async (ctx) => {
             const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : 'غير محدد';
 
             // تحديد نوع التكرار
-            let recurrenceText;                                 
-            if (r.isRecurring) {                    
+            let recurrenceText;
+            if (r.isRecurring) {
                 recurrenceText = r.dayOfWeek === 0
-                    ? '🗓️ كل يوم'
-                    : `🗓️ كل ${['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'][r.dayOfWeek - 1]}`;
+                    ? '🗓️ <b>كل يوم</b>'
+                    : `🗓️ <b>كل ${['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'][r.dayOfWeek - 1]}</b>`;
             } else {
-                recurrenceText = '🔄 لمرة واحدة';
+                recurrenceText = '🔄 <b>لمرة واحدة</b>';
             }
 
-            return `⏰ ${index + 1} - **${r.title}**\n📅 التاريخ: ${formattedDate}\n🕒 الوقت: ${formattedTime}\n${recurrenceText}\n`;
+            let reminderListMessage = `⏰ رقم التذكير: ${index + 1}\n`;
+            reminderListMessage += `📋 عنوان التذكير: <b>${r.title}</b>\n`;
+            reminderListMessage += `📝 نص التذكير: <b>${r.message}</b>\n`;
+            reminderListMessage += `📅 <b>التاريخ:</b> ${formattedDate}\n`;
+            reminderListMessage += `🕒 <b>الوقت:</b> ${formattedTime}\n`;
+            reminderListMessage += `${recurrenceText}\n\n`;
+
+            return reminderListMessage;
         }).join('\n');
 
-        await ctx.reply(`📅 **التذكيرات الحالية:**\n\n${reminderList}`, { parse_mode: 'Markdown' });
+        await ctx.reply('🔍 يجب إدخال رقم التذكير الذي ترغب في حذفه:\n');
+        await ctx.reply(`📅 <b>التذكيرات الحالية:</b>\n\n${reminderList}`, { parse_mode: 'HTML' });
         ctx.session.reminders = reminders; // تخزين التذكيرات في الجلسة
     } catch (error) {
         console.error('Failed to fetch reminders:', error);
@@ -63,7 +71,7 @@ deleteReminderScene.on('text', async (ctx) => {
 
     try {
         await deleteReminderFromDatabase(reminder.id);
-        await ctx.reply(`✅ تم حذف التذكير: "${reminder.title}" بنجاح!`);
+        await ctx.reply(`✅ تم حذف التذكير: "<b>${reminder.title}</b>" بنجاح!`, { parse_mode: 'HTML' });
     } catch (error) {
         console.error('Failed to delete reminder:', error);
         await ctx.reply('❌ حدث خطأ أثناء حذف التذكير. حاول لاحقًا.');

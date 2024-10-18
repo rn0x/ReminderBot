@@ -19,12 +19,17 @@ const toMakkahTime = (date) => {
 // دالة لإرسال التذكير
 const sendReminder = async (client, chatId, title, message, timeRemaining = null, mentionAdmins = false, mentionAll = false) => {
     try {
-        let fullMessage = `🔔 #تذكير\n\n🗓️ ${title}\n📢 ${message}`;
+        let fullMessage = '';
+
+        fullMessage += '🔔 <b>#تذكير</b>\n\n';
+        fullMessage += `🗓️ <b>${title}</b>\n`;
+        fullMessage += `📢 ${message}\n`;
+
         if (timeRemaining) {
-            fullMessage += `\n⏳ الوقت المتبقي: ${timeRemaining}`;
+            fullMessage += `⏳ <b>الوقت المتبقي:</b> ${timeRemaining}\n`;
         }
 
-        const options = { parse_mode: 'Markdown', disable_notification: false };
+        const options = { parse_mode: 'HTML', disable_notification: false };
 
         // ذكر المشرفين إذا كانت الإعدادات تتطلب ذلك
         if (mentionAdmins) {
@@ -36,6 +41,7 @@ const sendReminder = async (client, chatId, title, message, timeRemaining = null
                 if (member) { // تحقق من وجود العضو
                     if (member.username) {
                         adminMentions += `@${member.username} `;
+                        // adminMentions += `<a href="tg://user?id=${admin.userId}">@${member.username}</a> `;
                     } else {
                         console.warn(`Admin ${admin.userId} does not have a username.`);
                     }
@@ -45,7 +51,7 @@ const sendReminder = async (client, chatId, title, message, timeRemaining = null
             }
 
             if (adminMentions) {
-                fullMessage += `\n\n👮‍♂️ المشرفون: ${adminMentions.trim()}`;
+                fullMessage += `\n\n👮‍♂️ <b>المشرفون:</b> ${adminMentions.trim()}`;
             }
         }
 
@@ -63,7 +69,7 @@ const sendReminder = async (client, chatId, title, message, timeRemaining = null
             }
 
             if (memberMentions) {
-                fullMessage += `\n\n👥 الأعضاء: ${memberMentions.trim()}`;
+                fullMessage += `\n\n👥 <b>الأعضاء:</b> ${memberMentions.trim()}`;
             }
         }
 
